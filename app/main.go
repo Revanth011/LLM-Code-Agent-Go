@@ -22,14 +22,8 @@ import (
 // 	} `json:"function"`
 // }
 
-func Read(file_path string) string {
-	data := make([]byte, 100)
-	file, err := os.Open(file_path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = file.Read(data)
+func Read(filePath string) string {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,7 +69,7 @@ func main() {
 					Parameters: openai.FunctionParameters{
 						"type": "object",
 						"properties": map[string]any{
-							"file_path" : map[string]any{
+							"filePath" : map[string]any{
 								"type": "string",
 								"description" : "The path of the file to read",
 							},
@@ -92,7 +86,7 @@ func main() {
 	}
 	if len(resp.Choices[0].Message.ToolCalls) != 0 {
 		type Arguments struct {
-			FilePath string `json:"file_path"`
+			FilePath string `json:"filePath"`
 		}
 		var arguments Arguments
 		err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
