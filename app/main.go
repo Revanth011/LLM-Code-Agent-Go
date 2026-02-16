@@ -10,6 +10,10 @@ import (
 	"github.com/openai/openai-go/v3/option"
 )
 
+func _readFile() {
+
+}
+
 func main() {
 	var prompt string
 	flag.StringVar(&prompt, "p", "", "Prompt to send to LLM")
@@ -41,6 +45,22 @@ func main() {
 						},
 					},
 				},
+			},
+			Tools: []openai.ChatCompletionToolUnionParam{
+				openai.ChatCompletionFunctionTool(openai.FunctionDefinitionParam{
+					Name: "Read",
+					Description: openai.String("Read and return the contents of a file"),
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"file_path" : map[string]any{
+								"type": "string",
+								"description" : "The path of the file to read",
+							},
+						},
+					},
+					
+				}),
 			},
 		},
 	)
