@@ -99,7 +99,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		Read(arguments.FilePath)
+		fmt.Print(Read(arguments.FilePath))
 	}
 
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
