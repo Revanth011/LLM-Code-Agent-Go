@@ -91,6 +91,7 @@ func main() {
 	}
 
 	for len(resp.Choices[0].Message.ToolCalls) != 0 {
+		messages = append(messages, resp.Choices[0].Message.ToParam())
 		type Arguments struct {
 			FilePath string `json:"filePath"`
 		}
@@ -101,7 +102,6 @@ func main() {
 		}
 		messages = append(messages, openai.ChatCompletionMessageParamUnion{
 					OfTool: &openai.ChatCompletionToolMessageParam{
-						Role: "tool",
 						ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
 						Content:  openai.ChatCompletionToolMessageParamContentUnion {
 						OfString:openai.String(Read(arguments.FilePath))},
