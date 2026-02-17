@@ -50,19 +50,17 @@ func main() {
 	}
 
 	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
-	resp, err := client.Chat.Completions.New(context.Background(),
-		openai.ChatCompletionNewParams{
-			Model: "anthropic/claude-haiku-4.5",
-			Messages: []openai.ChatCompletionMessageParamUnion{
-				{
+	var messages []openai.ChatCompletionMessageParamUnion
+	var tools []openai.ChatCompletionToolUnionParam
+
+	messages = append(messages, openai.ChatCompletionMessageParamUnion{
 					OfUser: &openai.ChatCompletionUserMessageParam{
 						Content: openai.ChatCompletionUserMessageParamContentUnion{
 							OfString: openai.String(prompt),
 						},
-					},
-				},
-			},
-			Tools: []openai.ChatCompletionToolUnionParam{
+					},})
+
+	tools = append(tools, 
 				openai.ChatCompletionFunctionTool(openai.FunctionDefinitionParam{
 					Name: "Read",
 					Description: openai.String("Read and return the contents of a file"),
@@ -77,14 +75,22 @@ func main() {
 					},
 					
 				}),
-			},
+			)
+	
+	resp, err := client.Chat.Completions.New(context.Background(),
+		openai.ChatCompletionNewParams{
+			Model: "anthropic/claude-haiku-4.5",
+			Messages: messages,
+			Tools: tools,
 		},
 	)
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	if len(resp.Choices[0].Message.ToolCalls) != 0 {
+
+	for len(resp.Choices[0].Message.ToolCalls) != 0 {
 		type Arguments struct {
 			FilePath string `json:"filePath"`
 		}
@@ -93,8 +99,35 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		messages = append(messages, openai.ChatCompletionMessageParamUnion{
+					OfTool: &openai.ChatCompletionToolMessageParam{
+						Role: "tool",
+						ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+						Content:  openai.ChatCompletionToolMessageParamContentUnion {
+						OfString:openai.String(resp.Choices[0].Message.Content)},
+					},})
+
 		fmt.Print(Read(arguments.FilePath))
+		resp, err = client.Chat.Completions.New(context.Background(),
+		openai.ChatCompletionNewParams{
+			Model: "anthropic/claude-haiku-4.5",
+			Messages: messages,
+			Tools: tools,
+		},
+	)
 	}
+
+	// if len(resp.Choices[0].Message.ToolCalls) != 0 {
+	// 	type Arguments struct {
+	// 		FilePath string `json:"filePath"`
+	// 	}
+	// 	var arguments Arguments
+	// 	err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	fmt.Print(Read(arguments.FilePath))
+	// }
 
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
