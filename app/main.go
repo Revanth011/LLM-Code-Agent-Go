@@ -107,7 +107,6 @@ func main() {
 						OfString:openai.String(Read(arguments.FilePath))},
 					},})
 
-		fmt.Print(Read(arguments.FilePath))
 		resp, err = client.Chat.Completions.New(context.Background(),
 		openai.ChatCompletionNewParams{
 			Model: "anthropic/claude-haiku-4.5",
@@ -133,5 +132,5 @@ func main() {
 	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
 
 	// TODO: Uncomment the line below to pass the first stage
-	// fmt.Print(resp.Choices[0].Message.Content)
+	fmt.Print(resp.Choices[0].Message.Content)
 }
