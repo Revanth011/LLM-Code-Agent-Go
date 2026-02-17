@@ -128,8 +128,8 @@ func main() {
 		
 
 		var toolName string = resp.Choices[0].Message.ToolCalls[0].Function.Name
-
-		if toolName == "Read"{
+		switch toolName {
+		case "Read":
 			var arguments Arguments
 			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
 			if err != nil {
@@ -141,7 +141,7 @@ func main() {
 							Content:  openai.ChatCompletionToolMessageParamContentUnion {
 							OfString:openai.String(Read(arguments.FilePath))},
 						},})
-		} else if toolName == "Write" {
+		case "Write":
 			var arguments WriteArguments
 			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
 			if err != nil {
