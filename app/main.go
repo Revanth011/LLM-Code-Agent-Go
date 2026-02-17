@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-
-	"encoding/json"
+	"os/exec"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -21,12 +21,16 @@ import (
 // 		Arguments string `json:"arguments"`
 // 	} `json:"function"`
 // }
-type Arguments struct {
+type ReadArguments struct {
 	FilePath string `json:"filePath"`
 }
 type WriteArguments struct {
 	FilePath string `json:"filePath"`
 	Data 	 string `json:"data"`
+}
+
+type BashArguments struct {
+	Command string `json:"command"`
 }
 
 func Read(filePath string) string {
@@ -43,6 +47,17 @@ func Write(filePath string,  data []byte) string{
 		log.Fatal(err)
 	}
 	return "file written successfully"
+}
+
+func Bash(command string) string {
+	cmd := exec.Command("bash", "-c", command)
+
+	output, err := cmd.Output()
+	if err != nil {
+		panic(err)
+	}
+
+	return string(output)
 }
 
 func main() {
@@ -108,6 +123,20 @@ func main() {
 					},
 					
 				}),
+				openai.ChatCompletionFunctionTool(openai.FunctionDefinitionParam{
+					Name: "Bash",
+					Description: openai.String("Execute bash commands"),
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"command" : map[string]any{
+								"type": "string",
+								"description" : "bash command to execute",
+							},
+						},
+					},
+					
+				}),
 			)
 	
 	resp, err := client.Chat.Completions.New(context.Background(),
@@ -129,52 +158,53 @@ func main() {
 
 		var toolName string = resp.Choices[0].Message.ToolCalls[0].Function.Name
 		switch toolName {
-		case "Read":
-			var arguments Arguments
-			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
-			if err != nil {
-				log.Fatal(err)
+			case "Read":
+				var arguments ReadArguments
+				err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+				if err != nil {
+					log.Fatal(err)
+				}
+				messages = append(messages, openai.ChatCompletionMessageParamUnion{
+							OfTool: &openai.ChatCompletionToolMessageParam{
+								ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+								Content:  openai.ChatCompletionToolMessageParamContentUnion {
+								OfString:openai.String(Read(arguments.FilePath))},
+							},})
+
+			case "Write":
+				var arguments WriteArguments
+				err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+				if err != nil {
+					log.Fatal(err)
+				}
+				messages = append(messages, openai.ChatCompletionMessageParamUnion{
+							OfTool: &openai.ChatCompletionToolMessageParam{
+								ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+								Content:  openai.ChatCompletionToolMessageParamContentUnion {
+								OfString:openai.String(Write(arguments.FilePath, []byte(arguments.Data)))},
+							},})
+
+			case "Bash":
+				var arguments BashArguments
+				err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+				if err != nil {
+					log.Fatal(err)
+				}
+				messages = append(messages, openai.ChatCompletionMessageParamUnion{
+							OfTool: &openai.ChatCompletionToolMessageParam{
+								ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+								Content:  openai.ChatCompletionToolMessageParamContentUnion {
+								OfString:openai.String(Bash(arguments.Command))},
+							},})
 			}
-			messages = append(messages, openai.ChatCompletionMessageParamUnion{
-						OfTool: &openai.ChatCompletionToolMessageParam{
-							ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
-							Content:  openai.ChatCompletionToolMessageParamContentUnion {
-							OfString:openai.String(Read(arguments.FilePath))},
-						},})
-		case "Write":
-			var arguments WriteArguments
-			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
-			if err != nil {
-				log.Fatal(err)
-			}
-			messages = append(messages, openai.ChatCompletionMessageParamUnion{
-						OfTool: &openai.ChatCompletionToolMessageParam{
-							ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
-							Content:  openai.ChatCompletionToolMessageParamContentUnion {
-							OfString:openai.String(Write(arguments.FilePath, []byte(arguments.Data)))},
-						},})
-		}
-		resp, err = client.Chat.Completions.New(context.Background(),
-		openai.ChatCompletionNewParams{
-			Model: "anthropic/claude-haiku-4.5",
-			Messages: messages,
-			Tools: tools,
-		},
-	)
+			resp, err = client.Chat.Completions.New(context.Background(),
+			openai.ChatCompletionNewParams{
+				Model: "anthropic/claude-haiku-4.5",
+				Messages: messages,
+				Tools: tools,
+			},
+		)
 	}
-
-	// if len(resp.Choices[0].Message.ToolCalls) != 0 {
-	// 	type Arguments struct {
-	// 		FilePath string `json:"filePath"`
-	// 	}
-	// 	var arguments Arguments
-	// 	err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-		// fmt.Print(Read(arguments.FilePath))
-	// }
-
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
 
