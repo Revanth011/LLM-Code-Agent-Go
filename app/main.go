@@ -104,7 +104,7 @@ func main() {
 						Role: "tool",
 						ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
 						Content:  openai.ChatCompletionToolMessageParamContentUnion {
-						OfString:openai.String(resp.Choices[0].Message.Content)},
+						OfString:openai.String(Read(arguments.FilePath))},
 					},})
 
 		fmt.Print(Read(arguments.FilePath))
@@ -126,7 +126,7 @@ func main() {
 	// 	if err != nil {
 	// 		log.Fatal(err)
 	// 	}
-	// 	fmt.Print(Read(arguments.FilePath))
+		// fmt.Print(Read(arguments.FilePath))
 	// }
 
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
