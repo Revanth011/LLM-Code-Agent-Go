@@ -21,6 +21,13 @@ import (
 // 		Arguments string `json:"arguments"`
 // 	} `json:"function"`
 // }
+type Arguments struct {
+	FilePath string `json:"filePath"`
+}
+type WriteArguments struct {
+	FilePath string `json:"filePath"`
+	Data 	 string `json:"data"`
+}
 
 func Read(filePath string) string {
 	data, err := os.ReadFile(filePath)
@@ -28,6 +35,14 @@ func Read(filePath string) string {
 		log.Fatal(err)
 	}
 	return string(data)
+}
+
+func Write(filePath string,  data []byte) string{
+	err := os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return "file written successfully"
 }
 
 func main() {
@@ -75,6 +90,24 @@ func main() {
 					},
 					
 				}),
+				openai.ChatCompletionFunctionTool(openai.FunctionDefinitionParam{
+					Name: "Write",
+					Description: openai.String("Write content to the file"),
+					Parameters: openai.FunctionParameters{
+						"type": "object",
+						"properties": map[string]any{
+							"filePath" : map[string]any{
+								"type": "string",
+								"description" : "The path of the file to write",
+							},
+							"data" : map[string]any{
+								"type": "string",
+								"description" : "Data to write to the file",
+							},
+						},
+					},
+					
+				}),
 			)
 	
 	resp, err := client.Chat.Completions.New(context.Background(),
@@ -92,21 +125,35 @@ func main() {
 
 	for len(resp.Choices[0].Message.ToolCalls) != 0 {
 		messages = append(messages, resp.Choices[0].Message.ToParam())
-		type Arguments struct {
-			FilePath string `json:"filePath"`
-		}
-		var arguments Arguments
-		err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
-		if err != nil {
-			log.Fatal(err)
-		}
-		messages = append(messages, openai.ChatCompletionMessageParamUnion{
-					OfTool: &openai.ChatCompletionToolMessageParam{
-						ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
-						Content:  openai.ChatCompletionToolMessageParamContentUnion {
-						OfString:openai.String(Read(arguments.FilePath))},
-					},})
+		
 
+		var toolName string = resp.Choices[0].Message.ToolCalls[0].Function.Name
+
+		if toolName == "Read"{
+			var arguments Arguments
+			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+			if err != nil {
+				log.Fatal(err)
+			}
+			messages = append(messages, openai.ChatCompletionMessageParamUnion{
+						OfTool: &openai.ChatCompletionToolMessageParam{
+							ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+							Content:  openai.ChatCompletionToolMessageParamContentUnion {
+							OfString:openai.String(Read(arguments.FilePath))},
+						},})
+		} else if toolName == "Write" {
+			var arguments WriteArguments
+			err	:= json.Unmarshal([]byte(resp.Choices[0].Message.ToolCalls[0].Function.Arguments), &arguments)
+			if err != nil {
+				log.Fatal(err)
+			}
+			messages = append(messages, openai.ChatCompletionMessageParamUnion{
+						OfTool: &openai.ChatCompletionToolMessageParam{
+							ToolCallID: resp.Choices[0].Message.ToolCalls[0].ID,
+							Content:  openai.ChatCompletionToolMessageParamContentUnion {
+							OfString:openai.String(Write(arguments.FilePath, []byte(arguments.Data)))},
+						},})
+		}
 		resp, err = client.Chat.Completions.New(context.Background(),
 		openai.ChatCompletionNewParams{
 			Model: "anthropic/claude-haiku-4.5",
