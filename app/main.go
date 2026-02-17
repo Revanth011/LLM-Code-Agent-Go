@@ -50,7 +50,7 @@ func Write(filePath string,  data []byte) string{
 }
 
 func Bash(command string) string {
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.Command("sh", "-c", command)
 
 	output, err := cmd.Output()
 	if err != nil {
